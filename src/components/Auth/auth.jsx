@@ -6,8 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
+import { FaGoogle } from "react-icons/fa";
+import { signInWithGoogle } from "../../../firebase";
+import { notification } from "antd";
 
-const token = "64bebc1e2c6d3f056a8c85b7";
+const API_BASE_URL =
+    import.meta.env.VITE_API || "https://green-shop-backend.onrender.com/api";
+const API_TOKEN = import.meta.env.VITE_API_TOKEN || "64bebc1e2c6d3f056a8c85b7";
 
 export function Auth() {
     const navigate = useNavigate();
@@ -18,12 +23,23 @@ export function Auth() {
         name: "",
         surname: "",
         email: "",
-        username: "",
         password: "",
         confirmPassword: "",
     });
     const [userName, setUserName] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
+
+    const [api, contextHolder] = notification.useNotification();
+
+    const openNotification = (type, message, description) => {
+        api[type]({
+            message,
+            description,
+            placement: "topRight",
+        });
+    };
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -44,17 +60,110 @@ export function Auth() {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.id]: e.target.value });
+        if (errors[e.target.id]) {
+            setErrors({
+                ...errors,
+                [e.target.id]: null,
+            });
+        }
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+        const { name, surname, email, password, confirmPassword } = formData;
+
+        if (!email) {
+            newErrors.email = "Email is required";
+        } else if (!/\S+@\S+\.\S+/.test(email)) {
+            newErrors.email = "Email is invalid";
+        }
+
+        if (!password) {
+            newErrors.password = "Password is required";
+        } else if (password.length < 6) {
+            newErrors.password = "Password must be at least 6 characters";
+        }
+
+        if (isRegistering) {
+            if (!name) newErrors.name = "Name is required";
+            if (!surname) newErrors.surname = "Surname is required";
+
+            if (!confirmPassword) {
+                newErrors.confirmPassword = "Please confirm your password";
+            } else if (password !== confirmPassword) {
+                newErrors.confirmPassword = "Passwords do not match";
+            }
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleGoogleLogin = async () => {
+        try {
+            setIsLoading(true);
+            const result = await signInWithGoogle();
+
+            const data = await axios.post(
+                `${API_BASE_URL}/user/sign-in/google?access_token=${API_TOKEN}`,
+                {
+                    email: result.user.email,
+                }
+            );
+
+            handleAuthSuccess(data);
+        } catch (error) {
+            console.error("Google login failed:", error);
+            setErrors({ general: "Google login failed. Please try again." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAuthSuccess = (response) => {
+        if (!response?.data?.data) return;
+
+        const userData = response.data.data;
+
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("userToken", JSON.stringify(userData.token));
+        localStorage.setItem("userData", JSON.stringify(userData.user));
+        localStorage.setItem("userName", userData.user.name);
+
+        setUserName(userData.user.name);
+        setIsLoggedIn(true);
+
+        openNotification(
+            "success",
+            "Login Successful",
+            `Welcome, ${userData.user.name}!`
+        );
+
+        setFormData({
+            name: "",
+            surname: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+        });
+
+        setOpen(false);
+        navigate("/profile/account");
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!validateForm()) return;
+
         const { name, surname, email, password, confirmPassword } = formData;
+        setIsLoading(true);
 
         try {
             let res;
             if (isRegistering) {
                 res = await axios.post(
-                    `https://green-shop-backend.onrender.com/api/user/sign-up?access_token=${token}`,
+                    `${API_BASE_URL}/user/sign-up?access_token=${API_TOKEN}`,
                     {
                         name,
                         surname,
@@ -65,7 +174,7 @@ export function Auth() {
                 );
             } else {
                 res = await axios.post(
-                    `https://green-shop-backend.onrender.com/api/user/sign-in?access_token=${token}`,
+                    `${API_BASE_URL}/user/sign-in?access_token=${API_TOKEN}`,
                     {
                         email,
                         password,
@@ -73,37 +182,24 @@ export function Auth() {
                 );
             }
 
-            localStorage.setItem("user", JSON.stringify(res?.data?.data));
-            localStorage.setItem(
-                "userToken",
-                JSON.stringify(res.data.data.token)
-            );
-            localStorage.setItem(
-                "userData",
-                JSON.stringify(res.data.data.user)
-            );
-
-            setUserName(res.data.data.user.name);
-            setIsLoggedIn(true);
-
-            localStorage.setItem("userName", res.data.data.user.name);
-
-            setFormData({
-                name: "",
-                surname: "",
-                email: "",
-                username: "",
-                password: "",
-                confirmPassword: "",
-            });
-
-            setOpen(false);
-            navigate("/profile/account");
+            handleAuthSuccess(res);
         } catch (error) {
             console.error(
                 `${isRegistering ? "Signup" : "Login"} failed:`,
                 error
             );
+
+            if (error.response?.data?.message) {
+                setErrors({ general: error.response.data.message });
+            } else {
+                setErrors({
+                    general: isRegistering
+                        ? "Registration failed. Please try again."
+                        : "Login failed. Please check your credentials.",
+                });
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -119,6 +215,7 @@ export function Auth() {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
+            {contextHolder}
             <DialogTrigger asChild>
                 <Button
                     variant="outline"
@@ -154,6 +251,14 @@ export function Auth() {
                             ? "Enter your details to register."
                             : "Enter your email and password to login."}
                     </h3>
+
+                    {/* Display general error message */}
+                    {errors.general && (
+                        <div className="mt-2 text-sm text-red-500">
+                            {errors.general}
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="mt-4">
                         {isRegistering && (
                             <>
@@ -162,15 +267,30 @@ export function Auth() {
                                     placeholder="Name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="mb-2"
+                                    className={`mb-2 ${
+                                        errors.name ? "border-red-500" : ""
+                                    }`}
                                 />
+                                {errors.name && (
+                                    <div className="mb-2 text-xs text-red-500">
+                                        {errors.name}
+                                    </div>
+                                )}
+
                                 <Input
                                     id="surname"
                                     placeholder="Surname"
                                     value={formData.surname}
                                     onChange={handleChange}
-                                    className="mb-2"
+                                    className={`mb-2 ${
+                                        errors.surname ? "border-red-500" : ""
+                                    }`}
                                 />
+                                {errors.surname && (
+                                    <div className="mb-2 text-xs text-red-500">
+                                        {errors.surname}
+                                    </div>
+                                )}
                             </>
                         )}
                         <Input
@@ -179,37 +299,121 @@ export function Auth() {
                             type="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className="mb-2"
+                            className={`mb-2 ${
+                                errors.email ? "border-red-500" : ""
+                            }`}
                         />
+                        {errors.email && (
+                            <div className="mb-2 text-xs text-red-500">
+                                {errors.email}
+                            </div>
+                        )}
+
                         <Input
                             id="password"
                             placeholder="Password"
                             type="password"
                             value={formData.password}
                             onChange={handleChange}
-                            className="mb-2"
+                            className={`mb-2 ${
+                                errors.password ? "border-red-500" : ""
+                            }`}
                         />
-                        {isRegistering && (
-                            <Input
-                                id="confirmPassword"
-                                placeholder="Confirm Password"
-                                type="password"
-                                value={formData.confirmPassword}
-                                onChange={handleChange}
-                                className="mb-2"
-                            />
+                        {errors.password && (
+                            <div className="mb-2 text-xs text-red-500">
+                                {errors.password}
+                            </div>
                         )}
+
+                        {isRegistering && (
+                            <>
+                                <Input
+                                    id="confirmPassword"
+                                    placeholder="Confirm Password"
+                                    type="password"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                    className={`mb-2 ${
+                                        errors.confirmPassword
+                                            ? "border-red-500"
+                                            : ""
+                                    }`}
+                                />
+                                {errors.confirmPassword && (
+                                    <div className="mb-2 text-xs text-red-500">
+                                        {errors.confirmPassword}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
                         {!isRegistering && (
                             <h3 className="text-[#46A358] font-normal cursor-pointer w-fit ml-auto">
                                 Forgot Password?
                             </h3>
                         )}
+
                         <Button
                             type="submit"
                             className="bg-[#46A358] text-white w-full h-[45px] my-[20px]"
+                            disabled={isLoading}
                         >
-                            {isRegistering ? "Register" : "Login"}
+                            {isLoading
+                                ? "Processing..."
+                                : isRegistering
+                                ? "Register"
+                                : "Login"}
                         </Button>
+
+                        <div className="space-y-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex items-center justify-center w-full gap-2"
+                                disabled={isLoading}
+                            >
+                                <img
+                                    src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
+                                    alt="fb"
+                                    className="w-5 h-5"
+                                />
+                                Login with Facebook
+                            </Button>
+
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex items-center justify-center w-full gap-2"
+                                onClick={handleGoogleLogin}
+                                disabled={isLoading}
+                            >
+                                <FaGoogle />
+                                Login with Google
+                            </Button>
+
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex items-center justify-center w-full gap-2"
+                                disabled={isLoading}
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M3 8h4V4H3v4zm0 12h4v-4H3v4zm14 0h4v-4h-4v4zM17 4v4h4V4h-4zM7 12h10"
+                                    />
+                                </svg>
+                                Login with QR Code
+                            </Button>
+                        </div>
                     </form>
                 </div>
             </DialogContent>

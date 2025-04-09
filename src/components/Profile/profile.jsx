@@ -1,10 +1,22 @@
+import React, { useState } from "react";
 import { Heart, LogOut, MapPin, ShoppingBag, Truck, User } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Modal } from "antd";
 
 export default function Profile() {
-    const handleLogout = () => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const showLogoutModal = () => {
+        setIsModalOpen(true);
+    };
+
+    const handleConfirmLogout = () => {
         localStorage.clear();
         window.location.href = "/";
+    };
+
+    const handleCancelLogout = () => {
+        setIsModalOpen(false);
     };
 
     return (
@@ -12,6 +24,7 @@ export default function Profile() {
             <div className="w-[21%] rounded p-4 bg-[#FBFBFB]">
                 <ul>
                     <li className="text-xl font-bold text-left">My Account</li>
+
                     <li className="py-1">
                         <NavLink
                             to="/profile/account"
@@ -28,9 +41,9 @@ export default function Profile() {
                     </li>
                     <li className="py-1">
                         <NavLink
-                            to="/profile/myproducts"
+                            to="/profile/my-products"
                             className={({ isActive }) =>
-                                `flex items-center gap-2 transi font-semibold px-2 py-1 my-2 text-lg ${
+                                `flex items-center gap-2 transition font-semibold px-2 py-1 my-2 text-lg ${
                                     isActive
                                         ? "text-[#46A358] border-l-4 border-[#46A358] cursor-not-allowed"
                                         : "border-l border-transparent "
@@ -82,18 +95,45 @@ export default function Profile() {
                             <Truck /> Track Order
                         </NavLink>
                     </li>
+
                     <hr className="my-5 border-none h-0.5 rounded bg-[#46A358]/30" />
+
                     <li
-                        onClick={handleLogout}
+                        onClick={showLogoutModal}
                         className="flex items-center gap-2 px-2 py-1 my-2 text-lg font-semibold text-red-500 transition cursor-pointer"
                     >
                         <LogOut /> Logout
                     </li>
                 </ul>
             </div>
-            <div className="w-[74%] ">
+
+            <div className="w-[74%]">
                 <Outlet />
             </div>
+
+            <Modal
+                title="Confirm Logout"
+                open={isModalOpen}
+                onOk={handleConfirmLogout}
+                onCancel={handleCancelLogout}
+                okText="Yes, Logout"
+                cancelText="Cancel"
+                okButtonProps={{
+                    style: {
+                        backgroundColor: "red",
+                        borderColor: "red",
+                        color: "#fff",
+                    },
+                }}
+                cancelButtonProps={{
+                    style: {
+                        color: "black", 
+                        borderColor: "black",
+                    },
+                }}
+            >
+                <p>Are you sure you want to logout?</p>
+            </Modal>
         </div>
     );
 }

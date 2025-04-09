@@ -11,6 +11,10 @@ import { Toaster } from "sonner";
 import Profile from "./components/Profile/profile";
 import Account from "./components/Profile/ProfileDetails/Account";
 import AboutCards from "./pages/AboutCards/aboutCards";
+import MyProducts from "./components/Profile/ProfileDetails/MyProducts";
+import Wishlist from "./components/Profile/ProfileDetails/Wishlist";
+import Address from "./components/Profile/ProfileDetails/Address";
+import Track from "./components/Profile/ProfileDetails/track";
 
 function App() {
     return (
@@ -22,6 +26,10 @@ function App() {
                 <Route element={<Home />} path="/" />
                 <Route element={<Profile />} path="/profile">
                     <Route element={<Account />} path="account" />
+                    <Route element={<MyProducts />} path="my-products" />
+                    <Route element={<Wishlist />} path="wishlist" />
+                    <Route element={<Address />} path="address" />
+                    <Route element={<Track />} path="track" />
                 </Route>
                 <Route path="*" element={<NotFound />} />
                 <Route element={<AboutCards />} path="/pages/aboutCards/:id" />

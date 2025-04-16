@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Carousel } from "antd";
 const HeroCarousel = () => {
-    const slides = [
+    const slides = [    
         {
             id: 1,
             suptitle: "Welcome to GreenShop",
@@ -45,7 +45,7 @@ const HeroCarousel = () => {
                 {slides.map((slide, index) => (
                     <div
                         key={index}
-                        className="flex transi items-center justify-center bg-[#F5F5F5] rounded-xl max-sm:h-[180px] max-sm:pl-3 max-md:h-[250px] h-[400px] pl-10"
+                        className="flex transition items-center justify-center bg-[#F5F5F5] rounded-xl max-sm:h-[180px] max-sm:pl-3 max-md:h-[250px] h-[400px] pl-10"
                     >
                         <div className="flex items-center justify-between w-full h-full max-co">
                             <div className="flex flex-col justify-center flex-1">

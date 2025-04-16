@@ -127,7 +127,7 @@ export default function Profile() {
                 }}
                 cancelButtonProps={{
                     style: {
-                        color: "black", 
+                        color: "black",
                         borderColor: "black",
                     },
                 }}
